@@ -22,17 +22,21 @@ from sklearn.metrics import confusion_matrix
 # import necessary modules and load the dataset. Hint: src/dataset_utils.py
 # YOUR CODE HERE:
 
-data =  # YOUR CODE HERE
+from src.dataset_utils import load_dataset
+import pandas as pd
+
+data = load_dataset('spotify_hits.csv')  # YOUR CODE HERE
 
 # - Display shape of the DataFrame.
 # - Hint: Use the shape attribute to get the dimensions.
 
-print(f"Data shape: ...") # YOUR CODE HERE
+print(f"Data shape: {data.shape}")  # YOUR CODE HERE
 
 # - Displace the first few rows of the DataFrame to understand its structure.
 # - Hint: Use the head() method to display the first few rows.
 
 # YOUR CODE HERE:
+data.head()
 
 # ---------------------------------------------------------------
 # STEP 2 [10 pts]: Create a Binary Target Column
@@ -40,18 +44,19 @@ print(f"Data shape: ...") # YOUR CODE HERE
 # - Create a new column 'hit' from 'popularity'. A song is a hit if popularity ≥ 70; otherwise, it is not a hit.
 # - Hint: Use a lambda function to create the new column. The new column should be binary (0 for not a hit, 1 for a hit).
 
-data['hit'] = # YOUR CODE HERE
+data['hit'] = data['popularity'].apply(lambda x: 1 if x >= 70 else 0)  # YOUR CODE HERE
 
 # - Delete the original 'popularity' column as it is no longer needed.
 # - Hint: Use the drop() method to remove the column.
 
-# YOUR CODE HERE:
-data = # YOUR CODE HERE
+data = data.drop('popularity', axis=1)  # YOUR CODE HERE
 
 # - Display unique values of the 'hit' column to verify the transformation.
 
 # YOUR CODE HERE:
-
+print("Unique values in 'hit' column:", data['hit'].unique())
+print("Count of each value:")
+print(data['hit'].value_counts())
 
 # ---------------------------------------------------------------
 # STEP 3 [10 pts]: Preprocess the Dataset
@@ -64,13 +69,18 @@ data = # YOUR CODE HERE
 
 # YOUR CODE HERE:
 # Select numeric columns and remove missing values.
-data = # YOUR CODE HERE
-data = # YOUR CODE HERE
+numeric_data = data.select_dtypes(include=['number'])  # Select numbers
+
+if 'hit' not in numeric_data.columns:  # If for some reason 'hit' isn't included, add it back
+    numeric_data['hit'] = data['hit']
+
+data = numeric_data.dropna()  # Drop missing values
 
 # - Display shape of the DataFrame.
 # - Hint: Use the shape attribute to get the dimensions.
 
-print(f"data shape: ...") # YOUR CODE HERE
+print(f"Data shape after preprocessing: {data.shape}")  # YOUR CODE HERE
+print(f"Number of features (excluding target): {data.shape[1] - 1}")  # YOUR CODE HERE
 
 # ---------------------------------------------------------------
 # STEP 4 [10 pts]: Train/Test Split
@@ -79,11 +89,13 @@ print(f"data shape: ...") # YOUR CODE HERE
 # - Hint: Use the split_dataset() function from dataset_utils.py.
 
 # YOUR CODE HERE:
+from src.dataset_utils import split_dataset
+
 # Split the dataset.
-train_df, test_df = # YOUR CODE HERE
+train_df, test_df = split_dataset(df=data, target='hit', test_size=0.2)  # YOUR CODE HERE
 
 # - Display the shape of the training and testing DataFrames.
-print(f"Train shape: {...}, Test shape: {...}") # YOUR CODE HERE
+print(f"Train shape: {train_df.shape}, Test shape: {test_df.shape}")  # YOUR CODE HERE
 
 # ---------------------------------------------------------------
 # STEP 5 [20 pts]: Train the Naive Bayes Model
@@ -93,9 +105,11 @@ print(f"Train shape: {...}, Test shape: {...}") # YOUR CODE HERE
 
 # YOUR CODE HERE:
 # Create the DataSet object and train the model. Don't forget to import the NaiveBayesContinuous class.
+from src.dataset_utils import DataSet
+from src.naive_bayes_model import NaiveBayesContinuous
 
-train_dataset = # YOUR CODE HERE
-model = # YOUR CODE HERE
+train_dataset = DataSet(train_df, target='hit')  # YOUR CODE HERE
+model = NaiveBayesContinuous(train_dataset)  # YOUR CODE HERE
 
 # ---------------------------------------------------------------
 # STEP 6 [20 pts]: Make Predictions and Evaluate
@@ -107,17 +121,27 @@ model = # YOUR CODE HERE
 # - Accuracy = (Number of correct predictions) / (Total number of predictions)
 
 # YOUR CODE HERE:
+correct = 0  # Counters
+total = len(test_df)
+
 # Write your loop to predict and calculate accuracy.
-correct = # YOUR CODE HERE:
-total = # YOUR CODE HERE:
-for ... in test_df.iterrows():
-    features = # YOUR CODE HERE:
-    true_label = # YOUR CODE HERE:
-    predicted_label = # YOUR CODE HERE:
+for index, row in test_df.iterrows():
+    # Extract features as a dict (all columns except 'hit')
+    features = row.drop('hit').to_dict()
+
+    # Get the true label
+    true_label = row['hit']
+
+    # Predict the label
+    predicted_label = model(features)
+
+    # Check if prediction is correct
     if predicted_label == true_label:
         correct += 1
-accuracy = # YOUR CODE HERE:
-print(f"Model accuracy: {accuracy:.2f}")
+
+accuracy = correct / total  # YOUR CODE HERE.
+
+print(f"Model accuracy: {accuracy:.2f}")  # YOUR CODE HERE.
 
 
 # ---------------------------------------------------------------
@@ -134,12 +158,19 @@ print(f"Model accuracy: {accuracy:.2f}")
 # Hint: Correlation analysis can help identify influential features. Sort descending by correlation with the target variable. Target variable has correlation of 1.0.
 
 # YOUR CODE HERE:
-correlations = # YOUR CODE HERE
+correlations = data.corr()['hit'].sort_values(ascending=False)
 print("Correlation of features with 'hit':")
 print(correlations)
 
-q1_answer = ""  # YOUR ANSWER HERE
-q1_explanation = ""  # YOUR EXPLANATION HERE
+q1_answer = "B"  # YOUR ANSWER HERE
+# YOUR EXPLANATION HERE
+q1_explanation = """Based on the correlation analysis, audio features like danceability, acousticness, and 
+instrumentalness are likely to have positive correlations with the 'hit' status than other identifiers like the track_id. 
+These features represent actual musical characteristics that listeners respond to. Track_id is just an identifier with 
+no meaningful correlation. Duration_ms might have some correlation but generally isn't as significant as the audio 
+features. We removed popularity from the dataset (since it was used to create our target variable), and while tempo may 
+have some influence, the combination of features in option B is more comprehensive in determining a song's commercial success.
+"""
 
 # Q2 [5 pts]: What assumption does the Naive Bayes model make about the input features? Explain your reasoning.
 #   A. They follow a uniform distribution.
@@ -148,8 +179,15 @@ q1_explanation = ""  # YOUR EXPLANATION HERE
 #   D. They are weighted by importance.
 # Hint: Refer to the Naive Bayes assumption. Ref: https://en.wikipedia.org/wiki/Naive_Bayes_classifier
 
-q2_answer = ""  # YOUR ANSWER HERE
-q2_explanation = ""  # YOUR EXPLANATION HERE
+q2_answer = "C"  # YOUR ANSWER HERE
+# YOUR EXPLANATION HERE
+q2_explanation = """
+The assumption of Naive Bayes is that the features are conditionally independent given the target class. This 'naive' 
+assumption simplifies the computation by allowing us to multiply individual feature probabilities. While our 
+implementation also assumes that continuous features follow a normal distribution (as seen in the use of the gaussian 
+function), the core naive assumption is about feature independence. The model doesn't weight features by importance, nor 
+does it assume a uniform distribution across feature values.
+"""
 
 # Q3 [5 pts]: What is a likely difference if a decision tree is used instead of Naive Bayes? Explain your reasoning.
 #   A. The model will assume independence of features.
@@ -158,8 +196,15 @@ q2_explanation = ""  # YOUR EXPLANATION HERE
 #   D. The model will always perform worse.
 # Hint: Consider how decision trees work compared to Naive Bayes. Ref: https://en.wikipedia.org/wiki/Decision_tree_learning
 
-q3_answer = ""  # YOUR ANSWER HERE
-q3_explanation = ""  # YOUR EXPLANATION HERE
+q3_answer = "C"  # YOUR ANSWER HERE
+# YOUR EXPLANATION HERE
+q3_explanation = """
+Unlike Naive Bayes which treats features probabilistically, DTs operate by creating sequential splits in the data based 
+on feature threshold values. Each node in a DT represents a test on a specific feature (i.e. is danceability > 0.7?), 
+creating decision boundaries. Naive Bayes assumes feature independence (not DTs), and Naive Bayes actually assigns
+probabilities rather than decision rules (opposite of option B). There's no guarantee that DTs would always perform 
+worse than Naive Bayes, because performance depends on the specific dataset and problem.
+"""
 
 # ---------------------------------------------------------------
 # BONUS SECTION: Advanced Analysis [10 bonus pts]
