@@ -25,7 +25,7 @@ from sklearn.metrics import confusion_matrix
 from src.dataset_utils import load_dataset
 import pandas as pd
 
-data = load_dataset('data/spotify_hits.csv')  # YOUR CODE HERE
+data = load_dataset('../data/spotify_hits.csv')  # YOUR CODE HERE
 
 # - Display shape of the DataFrame.
 # - Hint: Use the shape attribute to get the dimensions.
